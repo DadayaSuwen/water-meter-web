@@ -1,0 +1,79 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: auto;
+  /* 竞赛级高级深蓝渐变背景 */
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #001529 100%);
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.loginBox {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 24px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  /* 核心修复 1：严格控制盒子模型，掐断内部撑开导致的滚动条 */
+  box-sizing: border-box;
+  overflow: hidden;
+
+  :global {
+    /* 强行接管登录表单内部容器的宽度 */
+    .ant-pro-form-login-main {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+    
+    .ant-pro-form-login-title {
+      color: #001529 !important;
+      font-weight: bold;
+      font-size: 28px !important;
+    }
+    .ant-pro-form-login-desc {
+      color: #595959 !important;
+      font-size: 14px !important;
+      margin-bottom: 32px !important;
+    }
+    
+    /* 核心修复 2：修正输入框边框与背景 */
+    .ant-input-affix-wrapper {
+      background-color: #f0f2f5 !important;
+      border: 1px solid #d9d9d9 !important;
+      box-shadow: none !important;
+    }
+    
+    /* 核心修复 3：修正输入的文字颜色 */
+    .ant-input {
+      background-color: transparent !important;
+      color: #333 !important; 
+    }
+    
+    /* 核心修复 4：抢救“隐身”的 placeholder（占位符） */
+    .ant-input::placeholder {
+      color: #8c8c8c !important; 
+      opacity: 1 !important;
+    }
+    
+    /* 核心修复 5：抢救前缀图标（用户/密码小图标） */
+    .ant-input-prefix .anticon {
+      color: #8c8c8c !important;
+    }
+  }
+}
+
+.footer {
+  padding-bottom: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 1px;
+}
