@@ -1,0 +1,6 @@
+services:
+  web:
+    build: .          # 告诉 Docker 在当前目录寻找 Dockerfile 构建镜像
+    ports:
+      - "8000:80"     # 格式为 "宿主机端口:容器端口"
+    restart: always
