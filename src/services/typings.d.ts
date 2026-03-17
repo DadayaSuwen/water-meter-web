@@ -39,4 +39,53 @@ declare namespace API {
     lastReading: number;
     createdAt: string;
   };
+
+  /** 水表列表项 (前端格式) */
+  type MeterListItem = {
+    id: string;
+    meterNo: string;
+    address: string;
+    ownerName: string;
+    type: string;
+    status: 'online' | 'offline' | 'error';
+    valveStatus: 'open' | 'closed' | 'error';
+    battery: number;
+    lastReading: number;
+    updateTime: string;
+  };
+
+  /** 工单列表项 */
+  type TicketListItem = {
+    id: string;
+    ticketNo?: string;
+    reporter?: string;
+    phone?: string;
+    address?: string;
+    description: string;
+    priority: 'high' | 'medium' | 'low';
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED';
+    remark?: string;
+    assignee?: string;
+    createTime: string;
+  };
+
+  /** 用水统计 */
+  type UsageStatistics = {
+    totalMeters: number;
+    totalUsage: number;
+    currentMonthUsage: number;
+    averageMonthlyUsage: number;
+  };
+
+  /** Dashboard 统计 */
+  type DashboardStats = {
+    networkPressure: number;
+    dailySupply: number;
+    alertCount: number;
+    lossRate: number;
+    totalMeters: number;
+    onlineMeters: number;
+    offlineMeters: number;
+    errorMeters: number;
+  };
 }

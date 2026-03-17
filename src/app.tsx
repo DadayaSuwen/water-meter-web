@@ -1,31 +1,83 @@
+// src/app.tsx
 import { LogoutOutlined } from '@ant-design/icons';
-import type { RunTimeLayoutConfig } from '@umijs/max';
-import { history } from '@umijs/max';
+import type { RequestConfig, RunTimeLayoutConfig } from '@umijs/max';
+import { history, request as umiRequest } from '@umijs/max';
 import { Dropdown } from 'antd';
 
+// 请确保这个路径与你实际的登录页路由完全一致！
+// 如果你的路由表里写的是 '/login'，请把这里改成 '/login'
+const LOGIN_PATH = '/user/login';
+
+// ================== 请求配置 ==================
+export const request: RequestConfig = {
+  baseURL: '/api',
+  timeout: 10000,
+  requestInterceptors: [
+    (config: any) => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+  ],
+};
+
+// ================== 强化的获取用户信息方法 ==================
+const fetchUserInfo = async () => {
+  const token = localStorage.getItem('token');
+
+  // 1. 如果本地根本没有 token，直接判定未登录，不用发请求了
+  if (!token) {
+    console.warn('[权限校验] 本地无 Token，跳过请求');
+    return undefined;
+  }
+
+  try {
+    console.log('[权限校验] 正在携带 Token 请求用户信息...');
+    // 因为在应用刚刷新时，Umi 的全局 request 配置可能还没初始化完毕！
+    const response = await umiRequest('/auth/admin/profile', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.success && response.data) {
+      console.log('[权限校验] 成功获取到用户信息:', response.data);
+      return response.data;
+    }
+
+    console.warn('[权限校验] 后端返回失败:', response);
+    return undefined;
+  } catch (error) {
+    console.error('[权限校验] 请求用户信息报错 (Token可能已失效):', error);
+    localStorage.removeItem('token');
+    return undefined;
+  }
+};
+
 /**
- * 1. 全局初始化数据 (真实鉴权模拟)
+ * 1. 全局初始化数据
  */
 export async function getInitialState(): Promise<{
   currentUser?: any;
+  fetchUserInfo?: () => Promise<any>;
 }> {
-  // 核心：系统加载时，去检查刚才在 Login 种下的 token
-  const isLogin = localStorage.getItem('water_mock_token') === 'true';
+  const { location } = history;
 
-  if (isLogin) {
+  // 如果当前不在登录页，执行状态恢复
+  if (location.pathname !== LOGIN_PATH) {
+    const currentUser = await fetchUserInfo();
     return {
-      currentUser: {
-        id: 'admin_001',
-        username: '超级管理员 (admin)',
-        role: 'ADMIN',
-        avatar:
-          'https://gw.alipayobjects.com/zos/antfincdn/XAoskVMBfL/BiazfanxmamNRoxxVxka.png',
-      },
+      fetchUserInfo,
+      currentUser,
     };
   }
 
-  // 如果没有 token，直接返回空，后续会被路由守卫拦截
-  return {};
+  return {
+    fetchUserInfo,
+  };
 }
 
 /**
@@ -35,7 +87,7 @@ export const layout: RunTimeLayoutConfig = ({
   initialState,
   setInitialState,
 }) => {
-  const isLoginPage = window.location.pathname === '/user/login';
+  const isLoginPage = window.location.pathname === LOGIN_PATH;
 
   return {
     title: '智慧水务指挥后台',
@@ -43,11 +95,14 @@ export const layout: RunTimeLayoutConfig = ({
     layout: 'mix',
     navTheme: 'light',
 
-    // 👇 核心：路由守卫。如果当前没用户数据且不在登录页，一律踢回登录页！
     onPageChange: () => {
       const { location } = history;
-      if (!initialState?.currentUser && location.pathname !== '/user/login') {
-        history.replace('/user/login');
+      // 如果没有用户信息，且当前不在登录页，则踢回登录页
+      if (!initialState?.currentUser && location.pathname !== LOGIN_PATH) {
+        console.warn(
+          `[路由守卫] 未获取到 currentUser，强制重定向至 ${LOGIN_PATH}`,
+        );
+        history.replace(LOGIN_PATH);
       }
     },
 
@@ -55,7 +110,6 @@ export const layout: RunTimeLayoutConfig = ({
     menuRender: isLoginPage ? false : undefined,
     headerRender: isLoginPage ? false : undefined,
 
-    // 👇 核心：右上角头像与退出登录交互
     avatarProps: {
       src: initialState?.currentUser?.avatar || undefined,
       title: initialState?.currentUser?.username || '未登录',
@@ -69,12 +123,9 @@ export const layout: RunTimeLayoutConfig = ({
                   icon: <LogoutOutlined />,
                   label: '退出安全系统',
                   onClick: () => {
-                    // 1. 物理销毁本地 Token
-                    localStorage.removeItem('water_mock_token');
-                    // 2. 清空 Umi 内存状态
-                    setInitialState({ currentUser: undefined });
-                    // 3. 强行推回登录页
-                    history.replace('/user/login');
+                    localStorage.removeItem('token');
+                    setInitialState((s) => ({ ...s, currentUser: undefined }));
+                    history.replace(LOGIN_PATH);
                   },
                 },
               ],

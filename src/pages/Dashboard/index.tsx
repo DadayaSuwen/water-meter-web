@@ -12,38 +12,71 @@ import {
   DashboardTwoTone,
   FundTwoTone,
 } from '@ant-design/icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  getDashboardStats,
+  getConsumptionTrend,
+  getWaterTypeDistribution,
+  getAreaPressure,
+  getReservoirStatus,
+} from '@/services/dashboard';
 
 const { Statistic } = StatisticCard;
 
 const Dashboard: React.FC = () => {
-  // 1. 模拟数据：月度用水趋势
-  const consumptionData = [
-    { date: '2025-09', value: 3500 },
-    { date: '2025-10', value: 4200 },
-    { date: '2025-11', value: 3800 },
-    { date: '2025-12', value: 5000 },
-    { date: '2026-01', value: 4800 },
-    { date: '2026-02', value: 6100 },
-  ];
+  // 状态管理
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>({
+    networkPressure: 0,
+    dailySupply: 0,
+    alertCount: 0,
+    lossRate: 0,
+    totalMeters: 0,
+    onlineMeters: 0,
+  });
+  const [consumptionData, setConsumptionData] = useState<any[]>([]);
+  const [typeData, setTypeData] = useState<any[]>([]);
+  const [pressureData, setPressureData] = useState<any[]>([]);
+  const [reservoirPercent, setReservoirPercent] = useState(0.72);
 
-  // 2. 模拟数据：用水性质占比
-  const typeData = [
-    { type: '居民生活', value: 45 },
-    { type: '工业用水', value: 30 },
-    { type: '商业服务', value: 15 },
-    { type: '市政绿化', value: 10 },
-  ];
+  // 加载数据
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
-  // 3. 模拟数据：各区域水压监控
-  const pressureData = [
-    { area: '城北区', pressure: 0.35 },
-    { area: '城南区', pressure: 0.32 },
-    { area: '开发区', pressure: 0.41 },
-    { area: '老城区', pressure: 0.28 },
-    { area: '高新区', pressure: 0.38 },
-    { area: '生态城', pressure: 0.36 },
-  ];
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      // 并行请求所有数据
+      const [statsRes, consumptionRes, typeRes, pressureRes, reservoirRes] = await Promise.all([
+        getDashboardStats(),
+        getConsumptionTrend(6),
+        getWaterTypeDistribution(),
+        getAreaPressure(),
+        getReservoirStatus(),
+      ]);
+
+      if (statsRes.success) {
+        setStats(statsRes.data);
+      }
+      if (consumptionRes.success) {
+        setConsumptionData(consumptionRes.data);
+      }
+      if (typeRes.success) {
+        setTypeData(typeRes.data);
+      }
+      if (pressureRes.success) {
+        setPressureData(pressureRes.data);
+      }
+      if (reservoirRes.success) {
+        setReservoirPercent(reservoirRes.data.percent);
+      }
+    } catch (error) {
+      console.error('加载Dashboard数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <PageContainer
@@ -57,7 +90,7 @@ const Dashboard: React.FC = () => {
             <StatisticCard
               statistic={{
                 title: '当前全网压力',
-                value: 0.36,
+                value: stats.networkPressure || 0.36,
                 suffix: 'Mpa',
                 icon: (
                   <DashboardTwoTone
@@ -81,7 +114,7 @@ const Dashboard: React.FC = () => {
                     alignItems: 'flex-end',
                   }}
                 >
-                  <Badge status="processing" text="全网传感器在线" />
+                  <Badge status="processing" text={`在线 ${stats.onlineMeters || 0}/${stats.totalMeters || 0}`} />
                 </div>
               }
             />
@@ -91,7 +124,7 @@ const Dashboard: React.FC = () => {
             <StatisticCard
               statistic={{
                 title: '今日累计供水',
-                value: 8642,
+                value: stats.dailySupply || 0,
                 suffix: 'm³',
                 // 👇 核心修复：使用了安全的 CloudTwoTone 图标
                 icon: (
@@ -131,7 +164,7 @@ const Dashboard: React.FC = () => {
             <StatisticCard
               statistic={{
                 title: '异常告警总数',
-                value: 3,
+                value: stats.alertCount || 0,
                 suffix: '处',
                 valueStyle: { color: '#ff4d4f', fontWeight: 'bold' },
                 icon: (
@@ -166,7 +199,7 @@ const Dashboard: React.FC = () => {
             <StatisticCard
               statistic={{
                 title: '管网产销差 (漏损率)',
-                value: 12.4,
+                value: stats.lossRate || 0,
                 suffix: '%',
                 icon: (
                   <FundTwoTone
@@ -210,7 +243,7 @@ const Dashboard: React.FC = () => {
           >
             <div style={{ height: 350 }}>
               <Area
-                data={consumptionData}
+                data={consumptionData.length > 0 ? consumptionData : []}
                 xField="date"
                 yField="value"
                 style={{
@@ -238,7 +271,7 @@ const Dashboard: React.FC = () => {
               }}
             >
               <Liquid
-                percent={0.72}
+                percent={reservoirPercent}
                 style={{
                   shape: 'circle',
                   outlineBorder: 4,
@@ -261,7 +294,7 @@ const Dashboard: React.FC = () => {
           >
             <div style={{ height: 320 }}>
               <Pie
-                data={typeData}
+                data={typeData.length > 0 ? typeData : []}
                 angleField="value"
                 colorField="type"
                 radius={0.8}
@@ -297,7 +330,7 @@ const Dashboard: React.FC = () => {
           >
             <div style={{ height: 320 }}>
               <Column
-                data={pressureData}
+                data={pressureData.length > 0 ? pressureData : []}
                 xField="area"
                 yField="pressure"
                 color="#5cdbd3"

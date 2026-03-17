@@ -20,20 +20,11 @@ import {
   Timeline,
 } from 'antd';
 import React, { useRef, useState } from 'react';
-
-// 定义工单数据模型
-type TicketListItem = {
-  id: string;
-  ticketNo: string;
-  reporter: string;
-  phone: string;
-  address: string;
-  issueType: string;
-  priority: 'high' | 'medium' | 'low';
-  status: 'pending' | 'processing' | 'resolved' | 'closed';
-  assignee?: string;
-  createTime: string;
-};
+import { 
+  getAllRepairTickets, 
+  updateRepairTicket, 
+  TicketListItem 
+} from '@/services/repair';
 
 const TicketList: React.FC = () => {
   const actionRef = useRef<ActionType>();
@@ -42,73 +33,36 @@ const TicketList: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
   const [currentRow, setCurrentRow] = useState<TicketListItem>();
 
-  // ================= 1. 模拟后端接口请求 =================
+  // ================= 1. 调用后端 API 获取工单列表 =================
   const requestTicketList = async (params: any, sort: any, filter: any) => {
-    await new Promise((resolve) => setTimeout(resolve, 600)); // 模拟网络延迟
-
-    const mockData: TicketListItem[] = [
-      {
-        id: '1',
-        ticketNo: 'REP-2026031201',
-        reporter: '张三',
-        phone: '13800138000',
-        address: '高新区科技园A栋地下水管',
-        issueType: '管道破裂',
-        priority: 'high',
-        status: 'pending',
-        createTime: '2026-03-12 08:30:00',
-      },
-      {
-        id: '2',
-        ticketNo: 'REP-2026031202',
-        reporter: '李阿姨',
-        phone: '13912345678',
-        address: '老城区幸福小区3栋2单元',
-        issueType: '水表漏水',
-        priority: 'medium',
-        status: 'processing',
-        assignee: '王师傅',
-        createTime: '2026-03-12 09:15:00',
-      },
-      {
-        id: '3',
-        ticketNo: 'REP-2026031105',
-        reporter: '赵总',
-        phone: '13788889999',
-        address: '开发区创新路88号园区',
-        issueType: '无水压',
-        priority: 'high',
-        status: 'processing',
-        assignee: '刘工',
-        createTime: '2026-03-11 14:20:00',
-      },
-      {
-        id: '4',
-        ticketNo: 'REP-2026031008',
-        reporter: '物业张经理',
-        phone: '15011112222',
-        address: '城北区商业广场B座',
-        issueType: '阀门故障',
-        priority: 'low',
-        status: 'resolved',
-        assignee: '李师傅',
-        createTime: '2026-03-10 10:05:00',
-      },
-      {
-        id: '5',
-        ticketNo: 'REP-2026030912',
-        reporter: '王五',
-        phone: '18600001111',
-        address: '生态城绿化带主管道',
-        issueType: '疑似暗漏',
-        priority: 'medium',
-        status: 'closed',
-        assignee: '王师傅',
-        createTime: '2026-03-09 16:40:00',
-      },
-    ];
-
-    return { data: mockData, success: true, total: 86 };
+    try {
+      const response = await getAllRepairTickets(params.status);
+      
+      if (response.success) {
+        // 转换后端数据格式为前端格式
+        const data = (response.data || []).map((item: any) => ({
+          id: item.id,
+          ticketNo: `REP-${item.id.slice(-8)}`,
+          reporter: item.user?.username || '未知用户',
+          phone: item.user?.phone || '-',
+          address: item.meter?.location || '-',
+          issueType: item.description?.slice(0, 20) || '报修',
+          priority: 'medium' as const,
+          status: item.status?.toLowerCase() || 'pending',
+          assignee: item.handledBy || '-',
+          createTime: item.createdAt || new Date().toISOString(),
+        }));
+        
+        return { data, success: true, total: data.length };
+      } else {
+        message.error(response.message || '获取工单列表失败');
+        return { data: [], success: false, total: 0 };
+      }
+    } catch (error) {
+      console.error('获取工单列表失败:', error);
+      message.error('获取工单列表失败，请稍后重试');
+      return { data: [], success: false, total: 0 };
+    }
   };
 
   // ================= 2. 模拟操作动作 =================

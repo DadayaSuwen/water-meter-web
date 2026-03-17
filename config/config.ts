@@ -16,4 +16,12 @@ export default defineConfig({
   // 确保这里引入了路由表
   routes: routes,
   npmClient: 'pnpm',
+
+  // API 代理配置
+  proxy: {
+    '/api': {
+      target: 'http://localhost:7001',
+      changeOrigin: true,
+    },
+  },
 });

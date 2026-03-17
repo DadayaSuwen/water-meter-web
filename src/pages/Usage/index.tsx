@@ -10,7 +10,8 @@ import {
   StatisticCard,
 } from '@ant-design/pro-components';
 import { DatePicker, message, Select, Space, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { getUsageStatistics, getMonthlyUsage } from '@/services/usage';
 
 const { RangePicker } = DatePicker;
 const { Statistic, Divider } = StatisticCard;
@@ -18,6 +19,46 @@ const { Title } = Typography;
 
 const UsageStats: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  
+  // 状态管理 - API 数据
+  const [stats, setStats] = useState<any>({
+    totalMeters: 0,
+    totalUsage: 0,
+    currentMonthUsage: 0,
+    averageMonthlyUsage: 0,
+  });
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+
+  // 加载数据
+  useEffect(() => {
+    loadUsageData();
+  }, []);
+
+  const loadUsageData = async () => {
+    setLoading(true);
+    try {
+      const [statsRes, monthlyRes] = await Promise.all([
+        getUsageStatistics(),
+        getMonthlyUsage(12),
+      ]);
+
+      if (statsRes.success) {
+        setStats(statsRes.data);
+      }
+      if (monthlyRes.success) {
+        // 转换数据格式
+        const formatted = monthlyRes.data.map((item: any) => ({
+          date: item.period?.slice(5) || '',
+          value: item.amount || 0,
+        }));
+        setMonthlyData(formatted);
+      }
+    } catch (error) {
+      console.error('加载用水数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 模拟切换维度时的加载效果
   const handleFilterChange = () => {
@@ -28,8 +69,9 @@ const UsageStats: React.FC = () => {
     }, 600);
   };
 
-  // ================= 1. 模拟数据：每日用水趋势 (带时间轴) =================
-  const trendData = [
+  // ================= 数据：每日用水趋势 (带时间轴) =================
+  // 如果 API 有数据则使用，否则用模拟数据
+  const trendData = monthlyData.length > 0 ? monthlyData : [
     { date: '02-11', value: 1250 },
     { date: '02-12', value: 1320 },
     { date: '02-13', value: 1450 },

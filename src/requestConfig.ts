@@ -2,8 +2,8 @@ import { history, RequestConfig } from '@umijs/max';
 import { message } from 'antd';
 
 export const requestConfig: RequestConfig = {
-  // 对应 API 文档中的基础信息
-  baseURL: 'http://1.14.162.29:7001/api',
+  // 使用代理，请求会转发到 localhost:7001
+  baseURL: '/api',
   timeout: 10000,
 
   // 请求拦截器：自动附加 Token

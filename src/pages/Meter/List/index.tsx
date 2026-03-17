@@ -16,20 +16,7 @@ import {
   Timeline,
 } from 'antd';
 import React, { useRef, useState } from 'react';
-
-// 定义水表数据模型
-type MeterListItem = {
-  id: string;
-  meterNo: string;
-  address: string;
-  ownerName: string;
-  type: string;
-  status: 'online' | 'offline' | 'error';
-  valveStatus: 'open' | 'closed' | 'error';
-  battery: number;
-  lastReading: number;
-  updateTime: string;
-};
+import { getMeterList, remoteReadMeter, remoteToggleValve, MeterListItem } from '@/services/meter';
 
 const MeterList: React.FC = () => {
   const actionRef = useRef<ActionType>();
@@ -38,94 +25,74 @@ const MeterList: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
   const [currentRow, setCurrentRow] = useState<MeterListItem>();
 
-  // ================= 1. 模拟后端接口请求 =================
+  // ================= 1. 调用后端 API 获取水表列表 =================
   const requestMeterList = async (params: any, sort: any, filter: any) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    const mockData: MeterListItem[] = [
-      {
-        id: '1',
-        meterNo: 'WM-2025001',
-        address: '高新区科技园A栋101',
-        ownerName: '张三',
-        type: 'NB-IoT智能表',
-        status: 'online',
-        valveStatus: 'open',
-        battery: 85,
-        lastReading: 125.4,
-        updateTime: '2026-03-12 10:30:00',
-      },
-      {
-        id: '2',
-        meterNo: 'WM-2025002',
-        address: '高新区科技园A栋102',
-        ownerName: '李四',
-        type: 'NB-IoT智能表',
-        status: 'online',
-        valveStatus: 'open',
-        battery: 92,
-        lastReading: 88.2,
-        updateTime: '2026-03-12 11:15:00',
-      },
-      {
-        id: '3',
-        meterNo: 'WM-2025003',
-        address: '老城区幸福小区3栋201',
-        ownerName: '王五',
-        type: 'LoRa远传表',
-        status: 'offline',
-        valveStatus: 'open',
-        battery: 15,
-        lastReading: 342.1,
-        updateTime: '2026-03-10 08:20:00',
-      },
-      {
-        id: '4',
-        meterNo: 'WM-2025004',
-        address: '城北区商业广场B座',
-        ownerName: '万达物业',
-        type: '超声波大表',
-        status: 'error',
-        valveStatus: 'error',
-        battery: 60,
-        lastReading: 1520.8,
-        updateTime: '2026-03-12 09:05:00',
-      },
-      {
-        id: '5',
-        meterNo: 'WM-2025005',
-        address: '开发区创新路88号',
-        ownerName: '赵六',
-        type: 'NB-IoT智能表',
-        status: 'online',
-        valveStatus: 'closed',
-        battery: 45,
-        lastReading: 45.0,
-        updateTime: '2026-03-12 14:00:00',
-      },
-    ];
-
-    return { data: mockData, success: true, total: 154 };
+    try {
+      const response = await getMeterList(params);
+      
+      if (response.success) {
+        return { 
+          data: response.data || [], 
+          success: true, 
+          total: response.total || 0 
+        };
+      } else {
+        message.error(response.message || '获取水表列表失败');
+        return { data: [], success: false, total: 0 };
+      }
+    } catch (error) {
+      console.error('获取水表列表失败:', error);
+      message.error('获取水表列表失败，请稍后重试');
+      return { data: [], success: false, total: 0 };
+    }
   };
 
-  // ================= 2. 模拟操作动作 =================
-  const handleReadMeter = (record: MeterListItem) => {
+  // ================= 2. 实际操作动作 =================
+  const handleReadMeter = async (record: MeterListItem) => {
     message.loading({
       content: `正在向表 ${record.meterNo} 发送抄表指令...`,
       key: 'read',
     });
-    setTimeout(() => {
-      message.success({
-        content: `水表 ${record.meterNo} 抄表成功！最新读数已更新。`,
+    
+    try {
+      const response = await remoteReadMeter(record.id);
+      
+      if (response.success) {
+        message.success({
+          content: `水表 ${record.meterNo} 抄表成功！最新读数已更新。`,
+          key: 'read',
+        });
+        actionRef.current?.reload();
+      } else {
+        message.error({
+          content: response.message || '抄表失败',
+          key: 'read',
+        });
+      }
+    } catch (error) {
+      message.error({
+        content: '抄表请求失败，请稍后重试',
         key: 'read',
       });
-      actionRef.current?.reload();
-    }, 1500);
+    }
   };
 
-  const handleToggleValve = (record: MeterListItem) => {
+  const handleToggleValve = async (record: MeterListItem) => {
     const action = record.valveStatus === 'open' ? '关阀' : '开阀';
-    message.success(`已下发【${action}】指令到水表 ${record.meterNo}`);
+    
+    try {
+      const toggleAction = record.valveStatus === 'open' ? 'close' : 'open';
+      const response = await remoteToggleValve(record.id, toggleAction);
+      
+      if (response.success) {
+        message.success(`已下发【${action}】指令到水表 ${record.meterNo}`);
+        actionRef.current?.reload();
+      } else {
+        message.error(response.message || '操作失败');
+      }
+    } catch (error) {
+      message.error('操作失败，请稍后重试');
+    }
   };
 
   // ================= 3. 定义表格列 =================

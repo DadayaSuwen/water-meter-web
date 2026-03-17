@@ -1,42 +1,79 @@
 import { ApiTwoTone, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormText } from '@ant-design/pro-components';
-import { history, useModel } from '@umijs/max';
+import { history, request, useModel } from '@umijs/max';
 import { message, Tabs } from 'antd';
 import React, { useState } from 'react';
-import styles from './index.less'; // 完美保留您的样式文件
+import styles from './index.less';
+
+// Cookie 工具函数
+const cookieUtils = {
+  set: (name: string, value: string, days: number = 7) => {
+    const expires = new Date(
+      Date.now() + days * 24 * 60 * 60 * 1000,
+    ).toUTCString();
+    document.cookie = `${name}=${value};expires=${expires};path=/`;
+  },
+  get: (name: string): string | null => {
+    const match = document.cookie.match(
+      new RegExp('(^| )' + name + '=([^;]+)'),
+    );
+    return match ? decodeURIComponent(match[2]) : null;
+  },
+  remove: (name: string) => {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+  },
+};
+
+// 管理员登录接口
+interface AdminLoginResponse {
+  success: boolean;
+  data?: {
+    token: string;
+    user: {
+      id: string;
+      username: string;
+      role: string;
+      avatar?: string;
+    };
+  };
+  message?: string;
+}
 
 const Login: React.FC = () => {
   const [type, setType] = useState<string>('account');
-  const { initialState, setInitialState } = useModel('@@initialState');
+  const { setInitialState } = useModel('@@initialState');
 
-  // 👇 核心：替换掉原来的真实 API 请求，改为纯前端的强拦截逻辑
   const handleSubmit = async (values: Record<string, any>) => {
     const { username, password } = values;
 
-    // 强制校验：必须且只能是 admin / admin
-    if (username === 'admin' && password === 'admin') {
-      message.success('登录成功！欢迎进入智慧水务管理系统');
-
-      // 1. 在浏览器本地种下模拟 Token，配合 app.tsx 的路由守卫
-      localStorage.setItem('water_mock_token', 'true');
-
-      // 2. 注入全局用户状态，解锁系统菜单
-      await setInitialState({
-        ...initialState,
-        currentUser: {
-          id: 'admin_001',
-          username: '超级管理员 (admin)',
-          role: 'ADMIN',
-          avatar:
-            'https://gw.alipayobjects.com/zos/antfincdn/XAoskVMBfL/BiazfanxmamNRoxxVxka.png',
-        },
+    try {
+      // 发送登录请求 (假设你在 app.ts 配置了 baseURL: '/api')
+      const response = await request<AdminLoginResponse>('/auth/admin/login', {
+        method: 'POST',
+        data: { username, password },
       });
 
-      // 3. 登录成功后强制跳转到数据大盘
-      history.replace('/dashboard');
-    } else {
-      // 失败提示
-      message.error('认证失败：账号或密码错误！(唯一测试账号为 admin)');
+      if (response.success && response.data) {
+        message.success('登录成功！欢迎进入智慧水务管理系统');
+
+        // 👇 改进 1：将 Token 存储到本地 (结合你在 app.ts 中的请求拦截器使用)
+        localStorage.setItem('token', response.data.token);
+
+        // 👇 改进 2：更新 Umi Max 的全局状态，让 Layout 和权限插件生效
+        await setInitialState((s) => ({
+          ...s,
+          currentUser: response.data!.user,
+        }));
+
+        setTimeout(() => {
+          history.replace('/dashboard');
+        }, 100);
+      } else {
+        message.error(response.message || '登录失败，请检查用户名和密码');
+      }
+    } catch (error: any) {
+      console.error('登录错误:', error);
+      message.error(error.message || '登录失败，请检查网络或联系管理员');
     }
   };
 
@@ -63,13 +100,13 @@ const Login: React.FC = () => {
                 <ProFormText
                   name="username"
                   fieldProps={{ size: 'large', prefix: <UserOutlined /> }}
-                  placeholder={'请输入管理员账号 (admin)'}
+                  placeholder={'请输入管理员账号'}
                   rules={[{ required: true, message: '请输入账号!' }]}
                 />
                 <ProFormText.Password
                   name="password"
                   fieldProps={{ size: 'large', prefix: <LockOutlined /> }}
-                  placeholder={'请输入密码 (admin)'}
+                  placeholder={'请输入密码'}
                   rules={[{ required: true, message: '请输入密码!' }]}
                 />
               </>
