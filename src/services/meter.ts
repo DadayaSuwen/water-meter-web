@@ -25,6 +25,7 @@ export interface MeterListItem {
  */
 export async function getMeterList(params?: any) {
   return request<{
+    message: string;
     success: boolean;
     data: MeterListItem[];
     total: number;
@@ -161,7 +162,10 @@ export async function remoteReadMeter(meterId: string) {
  * 远程开关阀指令
  * 注意：后端需要实现此接口
  */
-export async function remoteToggleValve(meterId: string, action: 'open' | 'close') {
+export async function remoteToggleValve(
+  meterId: string,
+  action: 'open' | 'close',
+) {
   return request<{
     success: boolean;
     message: string;

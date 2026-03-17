@@ -1,3 +1,9 @@
+import {
+  getMeterList,
+  MeterListItem,
+  remoteReadMeter,
+  remoteToggleValve,
+} from '@/services/meter';
 import { DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
@@ -16,7 +22,6 @@ import {
   Timeline,
 } from 'antd';
 import React, { useRef, useState } from 'react';
-import { getMeterList, remoteReadMeter, remoteToggleValve, MeterListItem } from '@/services/meter';
 
 const MeterList: React.FC = () => {
   const actionRef = useRef<ActionType>();
@@ -29,12 +34,12 @@ const MeterList: React.FC = () => {
   const requestMeterList = async (params: any, sort: any, filter: any) => {
     try {
       const response = await getMeterList(params);
-      
+
       if (response.success) {
-        return { 
-          data: response.data || [], 
-          success: true, 
-          total: response.total || 0 
+        return {
+          data: response.data || [],
+          success: true,
+          total: response.total || 0,
         };
       } else {
         message.error(response.message || '获取水表列表失败');
@@ -53,10 +58,10 @@ const MeterList: React.FC = () => {
       content: `正在向表 ${record.meterNo} 发送抄表指令...`,
       key: 'read',
     });
-    
+
     try {
       const response = await remoteReadMeter(record.id);
-      
+
       if (response.success) {
         message.success({
           content: `水表 ${record.meterNo} 抄表成功！最新读数已更新。`,
@@ -79,11 +84,11 @@ const MeterList: React.FC = () => {
 
   const handleToggleValve = async (record: MeterListItem) => {
     const action = record.valveStatus === 'open' ? '关阀' : '开阀';
-    
+
     try {
       const toggleAction = record.valveStatus === 'open' ? 'close' : 'open';
       const response = await remoteToggleValve(record.id, toggleAction);
-      
+
       if (response.success) {
         message.success(`已下发【${action}】指令到水表 ${record.meterNo}`);
         actionRef.current?.reload();
